@@ -8,46 +8,32 @@ public struct CoreMLDownloader {
     var latestEndpoint: URL
     var downloadEndpoint: URL
     var token: String
-    var modelFileName: String
-    var modelUrl: URL
     let fileManager = FileManager.default
+    let modelUrl = FileManager.default.urls(
+        for: .documentDirectory,
+        in: .userDomainMask
+    )[0].appendingPathComponent("model.mlmodel")
     
     /// Init with separate latest version and download endpoints
     public init(
         latestEndpoint: URL,
         downloadEndpoint: URL,
-        token: String,
-        modelFileName: String  = "model"
+        token: String
     ) {
         self.latestEndpoint = latestEndpoint
         self.downloadEndpoint = downloadEndpoint
         self.token = token
-        self.modelFileName = modelFileName
-        
-        self.modelUrl = fileManager.urls(
-           for: .documentDirectory,
-           in: .userDomainMask
-       )[0]
-            .appendingPathComponent(modelFileName + ".mlmodel")
     }
     
     /// Init with combined latest version and download endpoints.
     /// Latest version is at `<endpoint>/latest` and download is at `<endpoint>/download`)
     public init(
         endpoint: URL,
-        token: String,
-        modelFileName: String = "model"
+        token: String
     ) {
         self.latestEndpoint = endpoint.appendingPathComponent("latest")
         self.downloadEndpoint = endpoint.appendingPathComponent("download")
         self.token = token
-        self.modelFileName = modelFileName
-        
-        self.modelUrl = fileManager.urls(
-           for: .documentDirectory,
-           in: .userDomainMask
-       )[0]
-            .appendingPathComponent(modelFileName + ".mlmodel")
     }
     
     /// Downloads and compiles the CoreML model from the internet.
