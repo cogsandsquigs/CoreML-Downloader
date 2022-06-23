@@ -1,54 +1,56 @@
 import CoreML
 import CryptoKit
 
+/// Downloads and compiles a CoreML model from somewhere on the interwebs.
 @available(iOS 15.0.0, *)
 @available(macOS 12.0, *)
 public struct CoreMLDownloader {
     var latestEndpoint: URL
     var downloadEndpoint: URL
     var token: String
-    var modelFileName: String?
+    var modelFileName: String
     var modelUrl: URL
     let fileManager = FileManager.default
-
-    init(
+    
+    /// Init with separate latest version and download endpoints
+    public init(
         latestEndpoint: URL,
         downloadEndpoint: URL,
         token: String,
-        modelFileName: String?
+        modelFileName: String  = "model"
     ) {
         self.latestEndpoint = latestEndpoint
         self.downloadEndpoint = downloadEndpoint
         self.token = token
-        if let modelFileName = modelFileName {
-            self.modelFileName = modelFileName
-        }
+        self.modelFileName = modelFileName
         
         self.modelUrl = fileManager.urls(
            for: .documentDirectory,
            in: .userDomainMask
        )[0]
-            .appendingPathComponent(modelFileName ?? "model" + ".mlmodel")
+            .appendingPathComponent(modelFileName + ".mlmodel")
     }
     
-    init(
+    /// Init with combined latest version and download endpoints.
+    /// Latest version is at `<endpoint>/latest` and download is at `<endpoint>/download`)
+    public init(
         endpoint: URL,
         token: String,
-        modelFileName: String?
+        modelFileName: String = "model"
     ) {
         self.latestEndpoint = endpoint.appendingPathComponent("latest")
         self.downloadEndpoint = endpoint.appendingPathComponent("download")
         self.token = token
-        if let modelFileName = modelFileName {
-            self.modelFileName = modelFileName
-        }
+        self.modelFileName = modelFileName
+        
         self.modelUrl = fileManager.urls(
            for: .documentDirectory,
            in: .userDomainMask
        )[0]
-            .appendingPathComponent(modelFileName ?? "model" + ".mlmodel")
+            .appendingPathComponent(modelFileName + ".mlmodel")
     }
     
+    /// Downloads and compiles the CoreML model from the internet.
     public func DownloadAndCompileModel() async throws -> MLModel {
         do {
             if fileManager.fileExists(atPath: modelUrl.path) {
@@ -81,7 +83,7 @@ public struct CoreMLDownloader {
     /// Fetches and returns the latest model's MD5 hash
     func fetchLatestMD5() async throws -> String {
         do {
-            var request = URLRequest(url: latestEndpoint.appendingPathComponent("latest"))
+            var request = URLRequest(url: latestEndpoint)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             
             // Get latest model's hash
@@ -121,9 +123,9 @@ public struct CoreMLDownloader {
     }
 }
 
-
-
-struct ModelDigest: Decodable {
+/// The structure of the latest version api endpoint.
+/// Is fetched as a `GET` request when downloading
+public struct ModelDigest: Decodable {
     public let md5: String
     public let status: String
 }
