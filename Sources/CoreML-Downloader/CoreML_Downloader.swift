@@ -13,6 +13,10 @@ public struct CoreMLDownloader {
         for: .documentDirectory,
         in: .userDomainMask
     )[0].appendingPathComponent("model.mlmodel")
+    var compiledUrl = FileManager.default.urls(
+        for: .documentDirectory,
+        in: .userDomainMask
+    )[0].appendingPathComponent("model.mlmodelc")
     
     /// Init with separate latest version and download endpoints
     public init(
@@ -37,7 +41,7 @@ public struct CoreMLDownloader {
     }
     
     /// Downloads and compiles the CoreML model from the internet.
-    public func DownloadAndCompileModel() async throws -> MLModel {
+    public mutating func DownloadAndCompileModel() async throws -> MLModel {
         do {
             if fileManager.fileExists(atPath: modelUrl.path) {
                 var origFileMD5 = CryptoKit.Insecure.MD5()
@@ -48,20 +52,32 @@ public struct CoreMLDownloader {
                 
                 // If the latest model and the current model's hash values are no the same, replace the current model with the latest model
                 if try await fetchLatestMD5() != origFileMD5.finalize().description.dropFirst(12) {
-                    try await self.downloadAndCompile()
+                    try await self.downloadModel()
                 } else {
                     print("model already at the latest version!")
                 }
-            
             // If there is no model, download the latest model version anyways
             } else {
                 print("retrieving model...")
-                try await self.downloadAndCompile()
+                try await self.downloadModel()
             }
 
-            let compiledUrl = try MLModel.compileModel(at: modelUrl) // Compiles the model file (goes from .mlmodel to .mlmodelc)
-            return try MLModel(contentsOf: compiledUrl) // Return the new model made from the compiled model file
+            return try await self.RetrieveModel()
         } catch {
+            throw error
+        }
+    }
+    
+    public mutating func RetrieveModel() async throws -> MLModel {
+        do {
+            if fileManager.fileExists(atPath: compiledUrl.path) {
+                return try MLModel(contentsOf: compiledUrl)
+            } else {
+                compiledUrl = try MLModel.compileModel(at: modelUrl) // Compiles the model file (goes from .mlmodel to .mlmodelc)
+                return try MLModel(contentsOf: compiledUrl)
+            }
+        } catch {
+            print("error while retrieving model: \(error)")
             throw error
         }
     }
@@ -85,7 +101,7 @@ public struct CoreMLDownloader {
     }
     
     /// Downloads the model from the endpoint and returns a `URL` to where it is currently stored.
-    func downloadAndCompile() async throws {
+    func downloadModel() async throws {
         
         print("downloading latest model...")
         do {
@@ -93,9 +109,6 @@ public struct CoreMLDownloader {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             
             let (tempUrl, _) = try await URLSession.shared.download(for: request) // Download the model from wherever it is stored
-            print("done!")
-            
-            print("compiling model...")
             
             let modelData = try Data(contentsOf: tempUrl) // Get the raw data
             
