@@ -8,36 +8,51 @@ public struct CoreMLDownloader {
     var latestEndpoint: URL
     var downloadEndpoint: URL
     var token: String
+    var modelName: String
     let fileManager = FileManager.default
-    let modelUrl = FileManager.default.urls(
-        for: .documentDirectory,
-        in: .userDomainMask
-    )[0].appendingPathComponent("model.mlmodel")
-    var compiledUrl = FileManager.default.urls(
-        for: .documentDirectory,
-        in: .userDomainMask
-    )[0].appendingPathComponent("model.mlmodelc")
+    var modelUrl: URL
+    var compiledUrl: URL
     
     /// Init with separate latest version and download endpoints
     public init(
         latestEndpoint: URL,
         downloadEndpoint: URL,
-        token: String
+        token: String,
+        modelName: String = "model"
     ) {
         self.latestEndpoint = latestEndpoint
         self.downloadEndpoint = downloadEndpoint
         self.token = token
+        self.modelName = modelName
+        self.modelUrl = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("models/model.mlmodel")
+        self.compiledUrl = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("models/model.mlmodelc")
     }
     
     /// Init with combined latest version and download endpoints.
     /// Latest version is at `<endpoint>/latest` and download is at `<endpoint>/download`)
     public init(
         endpoint: URL,
-        token: String
+        token: String,
+        modelName: String = "model"
     ) {
         self.latestEndpoint = endpoint.appendingPathComponent("latest")
         self.downloadEndpoint = endpoint.appendingPathComponent("download")
         self.token = token
+        self.modelName = modelName
+        self.modelUrl = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("models/\(modelName).mlmodel")
+        self.compiledUrl = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("models/\(modelName).mlmodelc")
     }
     
     /// Downloads and compiles the CoreML model from the internet.
@@ -58,6 +73,9 @@ public struct CoreMLDownloader {
                 }
             // If there is no model, download the latest model version anyways
             } else {
+                
+                try fileManager.createDirectory(atPath: modelUrl.deletingLastPathComponent().path, withIntermediateDirectories: true)
+                
                 print("retrieving model...")
                 try await self.downloadModel()
             }
@@ -68,6 +86,7 @@ public struct CoreMLDownloader {
         }
     }
     
+    /// Retrieves the model from the model's stored location
     public mutating func RetrieveModel() async throws -> MLModel {
         do {
             if fileManager.fileExists(atPath: compiledUrl.path) {
@@ -111,6 +130,8 @@ public struct CoreMLDownloader {
             let (tempUrl, _) = try await URLSession.shared.download(for: request) // Download the model from wherever it is stored
             
             let modelData = try Data(contentsOf: tempUrl) // Get the raw data
+            
+            print("a")
             
             try modelData.write(to: modelUrl) // Write new model file
             
