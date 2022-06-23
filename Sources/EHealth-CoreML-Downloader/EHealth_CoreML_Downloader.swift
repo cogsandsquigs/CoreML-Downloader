@@ -1,6 +1,7 @@
 import CoreML
 import CryptoKit
 
+@available(iOS 15.0.0, *)
 @available(macOS 12.0, *)
 public struct CoreMLDownloader {
     var latestEndpoint: URL
